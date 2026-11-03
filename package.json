@@ -1,0 +1,19 @@
+{
+  "name": "sid-jugasing-website",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Personal brand website: static frontend + Supabase backend + n8n automation",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/build.mjs && node scripts/serve.mjs",
+    "products:sql": "node scripts/products-sql.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.1",
+    "supabase": "^2.67.1"
+  }
+}

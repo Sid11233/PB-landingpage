@@ -1,0 +1,208 @@
+{
+  "id": "sjWorkflowD00001",
+  "name": "D · Contact form (notification + acknowledgement)",
+  "nodes": [
+    {
+      "id": "d9dcae93-7688-4c71-a331-275f79c17399",
+      "name": "Note zdq27",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -40,
+        -340
+      ],
+      "parameters": {
+        "content": "## D · Contact form\nSends: **notification to you** (reply-to = sender, includes the full message) + **acknowledgement to the sender** (does not repeat their message, so the form can't be abused to send content to third parties).\n\n**Flow:** Webhook (header auth) → claim event with the backend (prevents duplicate processing) → one item per email → Send Email via SMTP → report `smtp_accepted` / `failed` back to Supabase.\n\nSMTP failures are reported, and the backend schedules a retry that resends only the unsent emails.\n\nCredentials: **Hostinger SMTP**, **Website → n8n (X-Webhook-Secret)**, **n8n → Supabase (X-Automation-Secret)**.",
+        "width": 560,
+        "height": 300
+      }
+    },
+    {
+      "id": "5f99461f-5aff-4ec9-970f-3fb5db25f19e",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "6d423777-8913-4fdf-95a5-594c96401030",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sj-contact",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjWebhookAuth001",
+          "name": "Website → n8n (X-Webhook-Secret)"
+        }
+      }
+    },
+    {
+      "id": "0adcc031-e307-4f62-ab37-39047be2a761",
+      "name": "Claim event (idempotency)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.body.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'event.claim', event_id: $json.body.event_id }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    },
+    {
+      "id": "59b70e88-265a-4512-ad2f-b40d2a6b8cdd",
+      "name": "Messages to send",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Stops here if the backend says this event was already processed\n// (duplicate webhook, retry, manual re-run). Otherwise emits one item per email,\n// skipping any message the SMTP server already accepted on an earlier attempt.\nconst claim = $input.first().json;\nif (!claim.proceed) return [];\nconst event = $('Webhook').first().json.body;\nconst alreadySent = new Set(claim.already_sent || []);\nreturn (event.messages || [])\n  .filter((m) => !alreadySent.has(m.type))\n  .map((m) => ({ json: { ...m, event_id: event.event_id, event_type: event.event_type, callback_url: event.callback_url } }));"
+      }
+    },
+    {
+      "id": "a33494ee-b800-4d9a-888c-dbf7ee4a61fb",
+      "name": "Send email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        720,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "fromEmail": "={{ $json.from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $json.reply_to || '' }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "sjSmtpHostinger1",
+          "name": "Hostinger SMTP"
+        }
+      }
+    },
+    {
+      "id": "99ae99f3-8f1a-487e-ba3e-e4848c2094f9",
+      "name": "Report SMTP result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Messages to send').item.json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  action: 'email.result',\n  event_id: $('Messages to send').item.json.event_id,\n  message_type: $('Messages to send').item.json.type,\n  status: $json.error ? 'failed' : 'smtp_accepted',\n  smtp_message_id: $json.messageId || null,\n  smtp_response: $json.response || null,\n  error: $json.error ? String($json.error.message || $json.error.description || $json.error) : null\n}) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Claim event (idempotency)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim event (idempotency)": {
+      "main": [
+        [
+          {
+            "node": "Messages to send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Messages to send": {
+      "main": [
+        [
+          {
+            "node": "Send email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Report SMTP result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "active": false,
+  "tags": [],
+  "versionId": "6183fb80-2644-409a-a0d9-8eccafe3b443",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
