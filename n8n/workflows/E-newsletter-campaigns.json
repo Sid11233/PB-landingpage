@@ -1,0 +1,529 @@
+{
+  "id": "sjWorkflowE00001",
+  "name": "E · Newsletter campaigns",
+  "nodes": [
+    {
+      "id": "2b8e348c-e107-4b66-87e4-844428082bde",
+      "name": "Note bbnu4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -420,
+        -460
+      ],
+      "parameters": {
+        "content": "## E · Newsletter campaigns\n**Create a campaign** in Supabase (table `newsletter_campaigns`: identifier, subject, html_body, text_body, optional segment like `{\"tags_any\":[\"founders\"]}`).\n\n**Send it** either:\n1. From Supabase SQL editor: `select public.request_campaign_send('identifier');` (arrives via the Webhook), or\n2. Here: edit **Manual campaign settings**, then *Execute workflow*.\n\nOnly **active** (confirmed) subscribers are selected; pending, unsubscribed, bounced and suppressed contacts are never included, and each recipient is re-checked right before sending. Re-running resumes without sending anyone the same campaign twice.\n\nEvery email gets a personal unsubscribe link and per-recipient delivery status (`campaign_recipients`). The Wait node throttles batches: check your Hostinger plan's sending limits before large sends.",
+        "width": 700,
+        "height": 380
+      }
+    },
+    {
+      "id": "2219f53f-2ff9-4895-b83e-dcd03c9ed86a",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        0
+      ],
+      "webhookId": "de45d727-5e25-4b8e-a43b-c54f27b6308f",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sj-campaign",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjWebhookAuth001",
+          "name": "Website → n8n (X-Webhook-Secret)"
+        }
+      }
+    },
+    {
+      "id": "6eeaa625-b833-4a04-aca6-2643ecd46e35",
+      "name": "Claim event (idempotency)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.body.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'event.claim', event_id: $json.body.event_id }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    },
+    {
+      "id": "173e3194-a796-4326-8e91-fd2d30200232",
+      "name": "Manual trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        220
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "91cdd7cd-8c0f-4baa-af26-3e6568329e7b",
+      "name": "Manual campaign settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -180,
+        220
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c85b8b71-a072-4a40-a277-af4d01c11d1f",
+              "name": "identifier",
+              "value": "REPLACE-with-campaign-identifier",
+              "type": "string"
+            },
+            {
+              "id": "636b403d-5943-40af-b14e-68da842f9e7c",
+              "name": "callback_url",
+              "value": "https://YOUR-PROJECT-REF.supabase.co/functions/v1/automation-callback",
+              "type": "string"
+            },
+            {
+              "id": "48463e33-61dc-4358-81d2-005f45c20d93",
+              "name": "batch_size",
+              "value": 25,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "b2cc8ecf-5f13-442b-9dd3-22296a12fe0f",
+      "name": "Campaign context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        100
+      ],
+      "parameters": {
+        "jsCode": "// Normalises both entry points into { identifier, callback_url, batch_size }.\nconst j = $input.first().json;\nif ('proceed' in j) {               // came from the Webhook + claim\n  if (!j.proceed) return [];        // duplicate trigger: stop\n  const b = $('Webhook').first().json.body;\n  return [{ json: { identifier: b.data.identifier, callback_url: b.callback_url, batch_size: 25 } }];\n}\nreturn [{ json: { identifier: j.identifier, callback_url: j.callback_url, batch_size: Number(j.batch_size) || 25 } }];"
+      }
+    },
+    {
+      "id": "cdaa166d-fd42-4e60-9f67-95fb282b8c06",
+      "name": "Start campaign (select active subscribers)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        300,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'campaign.start', identifier: $json.identifier }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    },
+    {
+      "id": "991ebd6c-93ac-4f8c-8dcf-0a70f9674143",
+      "name": "Fetch next batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        100
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Campaign context').first().json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'campaign.next_batch', campaign_id: $('Start campaign (select active subscribers)').first().json.campaign_id, limit: $('Campaign context').first().json.batch_size }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "id": "9d6328fb-1269-45be-b02a-219abe2d516e",
+      "name": "Anything to send?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "072643c7-3b69-4979-9e9f-a9ea3b2bf8f0",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "0e15a303-2bf9-4fff-b6b9-a0d03d46efe5",
+      "name": "One item per recipient",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1020,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b = $input.first().json;\nreturn (b.messages || []).map((m) => ({ json: m }));"
+      }
+    },
+    {
+      "id": "3a12dd96-0d1b-4606-9e2b-7942fe43cf98",
+      "name": "Send email (SMTP)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1260,
+        0
+      ],
+      "onError": "continueRegularOutput",
+      "parameters": {
+        "fromEmail": "={{ $json.from }}",
+        "toEmail": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "both",
+        "text": "={{ $json.text }}",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "replyTo": "={{ $json.reply_to || '' }}"
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "sjSmtpHostinger1",
+          "name": "Hostinger SMTP"
+        }
+      }
+    },
+    {
+      "id": "2f9c16d8-4864-4866-b02a-a5dbb5c9e015",
+      "name": "Report recipient result",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1500,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Campaign context').first().json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  action: 'campaign.result',\n  recipient_id: $('One item per recipient').item.json.recipient_id,\n  status: $json.error ? 'failed' : 'smtp_accepted',\n  smtp_message_id: $json.messageId || null,\n  error: $json.error ? String($json.error.message || $json.error.description || $json.error) : null\n}) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    },
+    {
+      "id": "0dd40cd6-9cfa-4d9a-a17d-574a4e8db3ad",
+      "name": "Batch finished",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1740,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Runs once per batch, then loops back for the next one.\nreturn [{ json: { reported: $input.all().length } }];"
+      }
+    },
+    {
+      "id": "3aaf24b1-e417-44cb-aed2-986b0934c301",
+      "name": "Throttle",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1980,
+        0
+      ],
+      "webhookId": "7a648c4e-23e1-424c-9e14-a1fec68aab56",
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "a63385d2-a3dc-42a3-8624-540aaf7270e7",
+      "name": "Complete campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1020,
+        220
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Campaign context').first().json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'campaign.complete', campaign_id: $('Start campaign (select active subscribers)').first().json.campaign_id }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "sjCallbackAuth01",
+          "name": "n8n → Supabase (X-Automation-Secret)"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Claim event (idempotency)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claim event (idempotency)": {
+      "main": [
+        [
+          {
+            "node": "Campaign context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual trigger": {
+      "main": [
+        [
+          {
+            "node": "Manual campaign settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual campaign settings": {
+      "main": [
+        [
+          {
+            "node": "Campaign context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Campaign context": {
+      "main": [
+        [
+          {
+            "node": "Start campaign (select active subscribers)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Start campaign (select active subscribers)": {
+      "main": [
+        [
+          {
+            "node": "Fetch next batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch next batch": {
+      "main": [
+        [
+          {
+            "node": "Anything to send?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anything to send?": {
+      "main": [
+        [
+          {
+            "node": "One item per recipient",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Complete campaign",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per recipient": {
+      "main": [
+        [
+          {
+            "node": "Send email (SMTP)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send email (SMTP)": {
+      "main": [
+        [
+          {
+            "node": "Report recipient result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report recipient result": {
+      "main": [
+        [
+          {
+            "node": "Batch finished",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch finished": {
+      "main": [
+        [
+          {
+            "node": "Throttle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Throttle": {
+      "main": [
+        [
+          {
+            "node": "Fetch next batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "saveManualExecutions": true
+  },
+  "pinData": {},
+  "active": false,
+  "tags": [],
+  "versionId": "b5ab9c5a-2c7b-4ac5-8d8c-5c3b8d8f506c",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
