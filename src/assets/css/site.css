@@ -46,7 +46,7 @@ h1,h2,h3,p{margin:0}
 .row.is-static .arrow{visibility:hidden}
 .vrow.is-static:hover{background:transparent}
 [hidden]{display:none!important}
-@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important}}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}*,*::before,*::after{transition-duration:.001ms!important;animation-duration:.001ms!important;animation-iteration-count:1!important;animation-delay:0s!important;transition-delay:0s!important}}
 
 /* ---- Forms: shared ---- */
 .form{display:flex;flex-direction:column;gap:12px}
@@ -121,3 +121,74 @@ select.input{padding-right:48px;cursor:pointer;background-repeat:no-repeat;backg
 .prose table{border-collapse:collapse;width:100%;font-size:15px}
 .prose th,.prose td{border-top:1px solid #D6CFC0;padding:10px 12px 10px 0;text-align:left;vertical-align:top}
 .prose th{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#66645F;font-weight:500}
+
+/* =============================================================================
+   Illustrations & motion (from design/sid-motion-kit-standalone.html)
+   Transform and opacity only. Everything is visible without JavaScript, and the
+   reduced-motion rule above stops loops and shows final states.
+   ============================================================================= */
+:root{--ease-out:cubic-bezier(.2,.7,.2,1)}
+
+/* ---- Shared illustration styles. Colours come from the --st-* variables. ---- */
+.il{width:100%;height:100%;display:block;max-height:100%;overflow:visible}
+.il .ln{fill:none;stroke:var(--st-fg);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.il .dim{fill:none;stroke:var(--st-mute);stroke-width:1;stroke-linecap:round;opacity:.6}
+.il .ac{fill:none;stroke:var(--st-accent);stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.il .acf{fill:var(--st-accent);stroke:none}
+.il .bgf{fill:var(--st-bg);stroke:var(--st-fg);stroke-width:1.5}
+.il text{font:500 11px/1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;fill:var(--st-mute);letter-spacing:.1em}
+.il .flow{stroke-dasharray:3 7;animation:il-dash 1.1s linear infinite}
+.il .breathe{transform-box:fill-box;transform-origin:center;animation:il-breathe 3s ease-in-out infinite}
+@keyframes il-dash{to{stroke-dashoffset:-20}}
+@keyframes il-breathe{50%{transform:scale(1.06)}}
+
+/* ---- Hero illustration (B · Pipeline): beside the copy from 960px, stacked below it on smaller screens ---- */
+.hero-split{display:flex;flex-direction:column;gap:40px}
+.hero-art{--st-bg:#161615;--st-fg:#F1ECE2;--st-mute:#A8A59D;--st-accent:#A9BBD6;width:100%;max-width:360px;aspect-ratio:5/4}
+@media (min-width:960px){
+  .hero-split{flex-direction:row;align-items:flex-start;justify-content:space-between;gap:48px}
+  .hero-art{flex:0 1 440px;max-width:440px}
+}
+
+/* ---- Venture marks: drawn for dark, recoloured for the cream section ---- */
+.mark{--st-bg:#F1ECE2;--st-fg:#1D1D1B;--st-mute:#66645F;--st-accent:#1B2A41;display:inline-block;flex:none}
+.mark .ln,.mark .ac{stroke-width:2}
+.mark-lg{width:44px;height:44px}
+.mark-sm{width:32px;height:32px}
+.vrow .name{display:inline-flex;align-items:center;gap:.32em}
+
+/* ---- A1 · Headline reveal: each line rises out of a mask once on load ---- */
+.reveal-line{display:block;overflow:hidden;padding:0 .12em .1em;margin:0 -.12em -.1em}
+.reveal-line>span{display:block;animation:rise .8s var(--ease-out) both;animation-delay:calc(var(--i,0) * 90ms)}
+@keyframes rise{from{transform:translateY(105%)}}
+
+/* ---- A2 · Scroll reveal. Only hides content once site.js has added .motion to <html>. ---- */
+.motion .rv{opacity:0;transform:translateY(24px);transition:opacity .7s var(--ease-out),transform .7s var(--ease-out);transition-delay:calc(var(--i,0) * 80ms)}
+.motion .rv.in{opacity:1;transform:none}
+
+/* ---- A3 · Row hover: name slides, arrow lifts, a thin line draws underneath (linked rows only) ---- */
+.vrow{position:relative}
+.vrow:not(.is-static)::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:#1B2A41;transform:scaleX(0);transform-origin:left;transition:transform .5s var(--ease-out)}
+.vrow .name{transition:transform .4s var(--ease-out)}
+.vrow .arrow{transition:transform .3s var(--ease-out)}
+.vrow:not(.is-static):hover::after,.vrow:not(.is-static):focus-visible::after{transform:scaleX(1)}
+.vrow:not(.is-static):hover .name,.vrow:not(.is-static):focus-visible .name{transform:translateX(14px)}
+.vrow:not(.is-static):hover .arrow,.vrow:not(.is-static):focus-visible .arrow{transform:translate(4px,-4px)}
+
+/* ---- A4 · Button fill sweep: colour sweeps in from the left, the arrow nudges forward ---- */
+.sweep{position:relative;overflow:hidden;isolation:isolate;transition:color .35s ease,border-color .35s ease}
+.sweep::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--sweep,#A9BBD6);transform:translateX(-101%);transition:transform .45s var(--ease-out)}
+.sweep-solid{--sweep:#F1ECE2}
+.sweep .nudge{display:inline-block;transition:transform .3s var(--ease-out)}
+.sweep:hover,.sweep:focus-visible{opacity:1;color:#161615;border-color:var(--sweep,#A9BBD6)!important}
+.sweep:hover::before,.sweep:focus-visible::before{transform:none}
+.sweep:hover .nudge,.sweep:focus-visible .nudge{transform:translateX(4px)}
+
+/* ---- A6 · Waitlist confirmation: ring and tick draw themselves, then the message fades up ---- */
+.tick .tick-svg{width:56px;height:56px;margin-bottom:8px}
+.tick .t-c,.tick .t-k{fill:none;stroke:#A9BBD6;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:0}
+.tick.play .t-c{animation:draw .7s ease-out both}
+.tick.play .t-k{animation:draw .5s .45s ease-out both}
+.tick.play .success-title,.tick.play .success-sub{animation:fadeup .6s .85s var(--ease-out) both}
+@keyframes draw{from{stroke-dashoffset:1}}
+@keyframes fadeup{from{opacity:0;transform:translateY(24px)}}

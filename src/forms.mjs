@@ -2,6 +2,7 @@
 // which POSTs JSON to the Supabase Edge Functions configured in site.config.mjs.
 
 import { emphasise, esc, WRAP } from "./partials.mjs";
+import { tick } from "./illustrations.mjs";
 
 const honeypot = (id) =>
   `<div class="hp" aria-hidden="true"><label for="${id}-website">Leave this field empty</label><input id="${id}-website" name="website" type="text" tabindex="-1" autocomplete="off"></div>`;
@@ -17,13 +18,13 @@ export function waitlistSection(site, product, { headingTag = "h2", sectionId = 
   return `<section id="${sectionId}" style="background: #1B2A41; color: #F1ECE2" aria-labelledby="${id}-title">
 <div style="${WRAP}; padding: clamp(56px, 8vw, 112px) clamp(20px, 4vw, 48px); display: flex; flex-wrap: wrap; gap: 48px 64px; align-items: flex-end">
 
-<div style="flex: 1.2 1 340px; display: flex; flex-direction: column; gap: 20px">
+<div class="rv" style="flex: 1.2 1 340px; display: flex; flex-direction: column; gap: 20px">
 <span style="font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #B9C2D0">${esc(product.eyebrow ?? "In development · Early access")}</span>
 <${headingTag} id="${id}-title" style="margin: 0; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; font-size: clamp(52px, 8vw, 112px); line-height: 0.95; letter-spacing: -0.01em">${emphasise(product.name)}</${headingTag}>
 <p style="margin: 0; max-width: 480px; font-size: 18px; color: #D5DBE5">${esc(product.description)}</p>
 </div>
 
-<div class="on-navy" style="flex: 1 1 340px; max-width: 520px">
+<div class="on-navy rv" style="--i: 1; flex: 1 1 340px; max-width: 520px">
 <form class="form" data-form="waitlist" data-product="${esc(product.slug)}" novalidate>
 <div class="form-row">
 <div class="field"><label class="field-label" for="${id}-first">First name</label>
@@ -41,7 +42,8 @@ ${honeypot(id)}
 <div class="form-error" role="alert" data-error hidden></div>
 <div class="form-note">A confirmation now, then an email when there's something to try. Leave anytime. <a href="${site.legal.privacyUrl}">Privacy policy</a>.</div>
 </form>
-<div class="success-card" data-success tabindex="-1" hidden>
+<div class="success-card tick" data-success tabindex="-1" hidden>
+${tick}
 <div class="success-title">You're on the list.</div>
 <div class="success-sub">I'll write when there's something to try.</div>
 <div class="success-sub" data-newsletter-note hidden>Check your inbox to confirm your newsletter subscription.</div>
@@ -57,7 +59,7 @@ ${honeypot(id)}
 // ---------------------------------------------------------------------------
 export function contactForm(site) {
   const c = "contact";
-  return `<div class="block" id="contact-form">
+  return `<div class="block rv" id="contact-form">
 <div class="block-intro">
 <span class="eyebrow">Send a message</span>
 <h3 class="block-title">Tell me about <em>your project.</em></h3>
@@ -127,7 +129,7 @@ ${honeypot(n)}
 <div class="success-sub" data-success-message>Click the link in the email to confirm your subscription.</div>
 </div>`;
   if (!withIntro) return `<div class="on-ink">${form}</div>`;
-  return `<div class="block" id="newsletter">
+  return `<div class="block rv" id="newsletter">
 <div class="block-intro">
 <span class="eyebrow">Newsletter</span>
 <h3 class="block-title">Notes on what <em>I'm building.</em></h3>

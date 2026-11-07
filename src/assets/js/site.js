@@ -122,7 +122,11 @@
   function showSuccess(form) {
     var card = form.parentNode.querySelector("[data-success]");
     form.hidden = true;
-    if (card) { card.hidden = false; card.focus(); }
+    if (card) {
+      card.hidden = false;
+      if (card.classList.contains("tick")) { card.classList.remove("play"); void card.offsetWidth; card.classList.add("play"); }
+      card.focus();
+    }
     return card;
   }
 
@@ -231,7 +235,27 @@
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Scroll reveal: blocks marked .rv fade up once as they enter the screen.
+  // Content is only hidden after this runs (via .motion on <html>), so it stays
+  // visible if the script fails or is blocked.
+  // ---------------------------------------------------------------------------
+  function initReveal() {
+    var els = document.querySelectorAll(".rv");
+    if (!els.length) return;
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || typeof IntersectionObserver !== "function") return;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.15, rootMargin: "0px 0px -5% 0px" });
+    document.documentElement.classList.add("motion");
+    Array.prototype.forEach.call(els, function (el) { io.observe(el); });
+  }
+
   function init() {
+    initReveal();
     Array.prototype.forEach.call(document.querySelectorAll("form[data-form]"), initForm);
     var c = document.querySelector('[data-page="confirm"]');
     if (c) initConfirm(c);

@@ -74,7 +74,7 @@ export function nav(site, { home = true } = {}) {
 <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0 28px; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase">
 <a class="navlink navtext" href="${h}#services" style="min-height: 44px; display: flex; align-items: center">Services</a>
 <a class="navlink navtext" href="${h}#waitlist" style="min-height: 44px; display: flex; align-items: center">Waitlist</a>
-<a class="btn" href="${h}#contact" data-track="cta_click" data-track-label="nav_work_with_me" style="height: 44px; box-sizing: border-box; padding: 0 22px; border-radius: 999px; background: ${site.accent}; color: #161615; display: flex; align-items: center; font-weight: 600">Work with me</a>
+<a class="btn sweep sweep-solid" href="${h}#contact" data-track="cta_click" data-track-label="nav_work_with_me" style="height: 44px; box-sizing: border-box; padding: 0 22px; border-radius: 999px; background: ${site.accent}; color: #161615; display: flex; align-items: center; font-weight: 600">Work with me</a>
 </div>
 </nav>`;
 }
